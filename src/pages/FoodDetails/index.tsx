@@ -74,13 +74,14 @@ const FoodDetails: React.FC = () => {
   useEffect(() => {
     async function loadFood(): Promise<void> {
       const { data } = await api.get<Food>(`foods/${routeParams.id}`);
-      const parsedFood = {
+
+      const formattedFood = {
         ...data,
         formattedPrice: formatValue(data.price),
       };
-      setFood(parsedFood);
+      setFood(formattedFood);
       setExtras(
-        parsedFood.extras.map(extra => ({
+        formattedFood.extras.map(extra => ({
           ...extra,
           quantity: 0,
         })),
@@ -92,24 +93,20 @@ const FoodDetails: React.FC = () => {
 
   function handleIncrementExtra(id: number): void {
     setExtras(state =>
-      state.map(extra => {
-        return {
-          ...extra,
-          quantity: extra.id === id ? extra.quantity + 1 : extra.quantity,
-        };
-      }),
+      state.map(extra => ({
+        ...extra,
+        quantity: extra.id === id ? extra.quantity + 1 : extra.quantity,
+      })),
     );
   }
 
   function handleDecrementExtra(id: number): void {
     setExtras(state =>
-      state.map(extra => {
-        return {
-          ...extra,
-          quantity:
-            extra.id === id && extra.quantity > 0 ? extra.quantity - 1 : 0,
-        };
-      }),
+      state.map(extra => ({
+        ...extra,
+        quantity:
+          extra.id === id && extra.quantity > 0 ? extra.quantity - 1 : 0,
+      })),
     );
   }
 
@@ -122,13 +119,21 @@ const FoodDetails: React.FC = () => {
   }
 
   const toggleFavorite = useCallback(() => {
-    setIsFavorite(!isFavorite);
+    async function removeFavoriteFood(id: number): Promise<void> {
+      await api.delete(`favorites/${id}`);
+      setIsFavorite(false);
+    }
 
-    const favoriteFood = food;
-    delete favoriteFood.formattedPrice;
-    delete favoriteFood.extras;
-
-    api.post('favorites', favoriteFood);
+    async function addFavoriteFood(): Promise<void> {
+      await api.post('favorites/', food);
+      setIsFavorite(true);
+    }
+    // Toggle if food is favorite or not
+    if (isFavorite) {
+      removeFavoriteFood(food.id);
+    } else {
+      addFavoriteFood();
+    }
   }, [isFavorite, food]);
 
   const cartTotal = useMemo(() => {
@@ -136,20 +141,21 @@ const FoodDetails: React.FC = () => {
       (acc, extra) => acc + extra.value * extra.quantity,
       0,
     );
-    const parsedExtrasTotal = Number.parseFloat(`${extrasTotal}`);
-    const parsedFoodPrice = Number.parseFloat(`${food.price}`);
 
-    const foodTotal = (parsedExtrasTotal + parsedFoodPrice) * foodQuantity;
+    const foodTotal = (extrasTotal + food.price) * foodQuantity;
     return formatValue(foodTotal);
   }, [extras, food, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
-    const foodOrder = food;
-    delete foodOrder.formattedPrice;
+    const resource = 'orders';
+    const orderData = { ...food, extras } as Omit<Food, 'formattedPrice'>;
+    const requestBody = { data: orderData };
+    await api.post(resource, requestBody);
 
-    await api.post('orders', foodOrder);
-
-    navigation.goBack();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Dashboard' }],
+    });
   }
 
   // Calculate the correct icon name

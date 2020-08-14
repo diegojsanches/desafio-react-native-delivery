@@ -63,12 +63,12 @@ const Dashboard: React.FC = () => {
         params: { name_like: searchValue, category_like: selectedCategory },
       });
 
-      setFoods(
-        data.map(food => ({
-          ...food,
-          formattedPrice: formatValue(food.price),
-        })),
-      );
+      const formattedFoods = data.map(food => ({
+        ...food,
+        formattedPrice: formatValue(food.price),
+      }));
+
+      setFoods(formattedFoods);
     }
 
     loadFoods();
